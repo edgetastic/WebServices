@@ -4,6 +4,7 @@ const router = express.Router();
 const Joi = require('Joi');
 const sql = require('../db');
 const multer = require('multer');
+const bcrypt = require('bcrypt');
 const validator = require('express-joi-validation').createValidator({passError: true}); 
 
 // New user validation
@@ -70,6 +71,29 @@ router.get('/:userId/comments', function(req, res, next) {
     }
 
     res.json(results);
+  });
+});
+
+/* POST a new user */
+router.post('/register', validator.body(createUserSchema), function(req, res, next) {
+  const saltRounds = 10;
+  const plainPassword = req.body.password;
+
+  bcrypt.hash(plainPassword, saltRounds, function(error, hash) {
+    req.body.password = hash;
+  });
+
+  sql.query('INSERT INTO users SET ?', req.body, function(error, result) {
+    if(error) {
+      if(error.code == 'ERR_DUP_ENTRY') {
+        res.status(400).send({
+          message: 'User already exists. Please register with a different email address'
+        });
+        return;
+      }
+      next(error);
+    }
+    res.json(result);
   });
 });
 
